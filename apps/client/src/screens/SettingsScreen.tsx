@@ -2,10 +2,19 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { BUFFER_PROFILES, getBufferProfile, type BufferProfile } from "../lib/retry";
 import { getPlatform } from "../lib/platform";
-import type { MaintenanceResult, TrendingStatus } from "../types";
+import type { MaintenanceResult, Playlist, TrendingStatus } from "../types";
 
 function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatExpiry(value: string): string {
+  const date = new Date(value);
+  const days = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
+  const formatted = date.toLocaleDateString("it-IT");
+  if (days < 0) return `${formatted} (scaduto)`;
+  if (days === 0) return `${formatted} (scade oggi)`;
+  return `${formatted} (tra ${days} giorni)`;
 }
 
 export function SettingsScreen() {
@@ -19,9 +28,11 @@ export function SettingsScreen() {
   const [maintenanceBusy, setMaintenanceBusy] = useState(false);
   const [maintenanceResult, setMaintenanceResult] = useState<MaintenanceResult | null>(null);
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
 
   useEffect(() => {
     api.trendingStatus().then(setTrending).catch(() => setTrending(null));
+    api.playlists().then((response) => setPlaylists(response.playlists)).catch(() => setPlaylists([]));
   }, []);
 
   async function runMaintenance() {
@@ -116,6 +127,29 @@ export function SettingsScreen() {
         )}
         {trendingError && <div className="notice notice--error">{trendingError}</div>}
       </section>
+      {playlists.length > 0 && (
+        <section className="panel settings-panel">
+          <h2>Abbonamento IPTV</h2>
+          <p className="form-hint">
+            Stato letto dal pannello del provider (Xtream Codes) all'ultimo import di ciascuna playlist. Se il
+            provider non espone questi dati, la voce non compare.
+          </p>
+          {playlists.map((playlist) => (
+            <div key={playlist.id} className="setting-option">
+              <strong>{playlist.name}</strong>
+              {playlist.accountStatus ? (
+                <span>
+                  Stato: {playlist.accountStatus}
+                  {playlist.accountExpiresAt ? ` · Scadenza: ${formatExpiry(playlist.accountExpiresAt)}` : " · Nessuna scadenza (illimitato)"}
+                  {playlist.accountMaxConnections ? ` · ${playlist.accountMaxConnections} connessioni max` : ""}
+                </span>
+              ) : (
+                <span>Il pannello di questo provider non espone lo stato dell'account.</span>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
       <section className="panel settings-panel">
         <h2>Manutenzione database</h2>
         <p className="form-hint">

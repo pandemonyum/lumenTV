@@ -60,6 +60,45 @@ function upsertImage(statement, sourceUrl, timestamp) {
   return id;
 }
 
+// Riconosce un URL M3U generato da un pannello Xtream Codes (".../get.php?username=...&password=...")
+// e ricava l'endpoint gemello che espone lo stato dell'account. Molti provider IPTV usano questo pannello.
+function xtreamApiUrl(sourceUrl) {
+  try {
+    const url = new URL(sourceUrl);
+    if (url.pathname !== "/get.php") return null;
+    const username = url.searchParams.get("username");
+    const password = url.searchParams.get("password");
+    if (!username || !password) return null;
+    const apiUrl = new URL("/player_api.php", url.origin);
+    apiUrl.searchParams.set("username", username);
+    apiUrl.searchParams.set("password", password);
+    return apiUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
+// Non tutti i pannelli espongono player_api.php: un fallimento qui non deve interrompere l'import.
+async function fetchAccountInfo(sourceUrl) {
+  const apiUrl = xtreamApiUrl(sourceUrl);
+  if (!apiUrl) return null;
+  try {
+    const response = await safeFetch(apiUrl, { timeoutMs: 10000, headers: { accept: "application/json" } });
+    const body = await readBodyLimited(response, 1_048_576);
+    const info = JSON.parse(body.toString("utf8"))?.user_info;
+    if (!info) return null;
+    const expSeconds = info.exp_date === undefined || info.exp_date === null ? NaN : Number(info.exp_date);
+    const maxConnections = Number.parseInt(info.max_connections, 10);
+    return {
+      status: typeof info.status === "string" ? info.status.slice(0, 40) : null,
+      expiresAt: Number.isFinite(expSeconds) ? new Date(expSeconds * 1000).toISOString() : null,
+      maxConnections: Number.isFinite(maxConnections) ? maxConnections : null
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function importPlaylistForUser(userId, playlistId) {
   const playlist = db.prepare(`
     SELECT id, user_id, source_url_enc
@@ -100,6 +139,15 @@ export async function importPlaylistForUser(userId, playlistId) {
       SET status = 'ready', item_count = ?, last_import_at = ?, last_error = NULL, updated_at = ?
       WHERE id = ?
     `).run(entries.length, completedAt, completedAt, playlistId);
+
+    const accountInfo = await fetchAccountInfo(sourceUrl);
+    if (accountInfo) {
+      db.prepare(`
+        UPDATE playlists
+        SET account_status = ?, account_expires_at = ?, account_max_connections = ?, account_checked_at = ?
+        WHERE id = ?
+      `).run(accountInfo.status, accountInfo.expiresAt, accountInfo.maxConnections, nowIso(), playlistId);
+    }
 
     pruneInactive(playlistId);
     db.exec("VACUUM");

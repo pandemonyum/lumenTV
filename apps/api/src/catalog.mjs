@@ -81,9 +81,14 @@ export function updatePlaylist(userId, playlistId, { name, sourceUrl }) {
   return getPlaylist(userId, playlistId);
 }
 
+const PLAYLIST_COLUMNS = `
+  id, name, status, item_count, downloaded_bytes, last_import_at, last_error, created_at, updated_at,
+  account_status, account_expires_at, account_max_connections, account_checked_at
+`;
+
 export function getPlaylist(userId, playlistId) {
   const row = db.prepare(`
-    SELECT id, name, status, item_count, downloaded_bytes, last_import_at, last_error, created_at, updated_at
+    SELECT ${PLAYLIST_COLUMNS}
     FROM playlists WHERE id = ? AND user_id = ?
   `).get(playlistId, userId);
   if (!row) throw new HttpError(404, "Playlist non trovata", "playlist_not_found");
@@ -92,7 +97,7 @@ export function getPlaylist(userId, playlistId) {
 
 export function listPlaylists(userId) {
   return db.prepare(`
-    SELECT id, name, status, item_count, downloaded_bytes, last_import_at, last_error, created_at, updated_at
+    SELECT ${PLAYLIST_COLUMNS}
     FROM playlists WHERE user_id = ? ORDER BY created_at ASC
   `).all(userId).map(camelPlaylist);
 }
@@ -107,7 +112,11 @@ function camelPlaylist(row) {
     lastImportAt: row.last_import_at || null,
     lastError: row.last_error || null,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    accountStatus: row.account_status || null,
+    accountExpiresAt: row.account_expires_at || null,
+    accountMaxConnections: row.account_max_connections ?? null,
+    accountCheckedAt: row.account_checked_at || null
   };
 }
 

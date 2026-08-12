@@ -22,6 +22,11 @@ db.exec("PRAGMA mmap_size = 268435456");
 
 // Migration: add column to existing databases that predate it.
 try { db.exec("ALTER TABLE playlists ADD COLUMN downloaded_bytes INTEGER NOT NULL DEFAULT 0"); } catch { /* already exists */ }
+// Stato abbonamento Xtream Codes (quando il pannello lo espone via player_api.php).
+try { db.exec("ALTER TABLE playlists ADD COLUMN account_status TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE playlists ADD COLUMN account_expires_at TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE playlists ADD COLUMN account_max_connections INTEGER"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE playlists ADD COLUMN account_checked_at TEXT"); } catch { /* already exists */ }
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (

@@ -94,6 +94,10 @@ export type Playlist = {
   lastError: string | null;
   createdAt: string;
   updatedAt: string;
+  accountStatus: string | null;
+  accountExpiresAt: string | null;
+  accountMaxConnections: number | null;
+  accountCheckedAt: string | null;
 };
 
 export type PlaybackSource = {

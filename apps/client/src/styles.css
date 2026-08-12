@@ -29,17 +29,9 @@ button:focus-visible, [data-platform="webos"] [data-focusable="true"]:focus {
 .app--player { height: 100vh; overflow: hidden; }
 
 .brand { display: inline-flex; align-items: center; white-space: nowrap; }
-.brand__mark {
-  position: relative; display: inline-flex; align-items: center; justify-content: center;
-  width: 42px; height: 42px; border: 1px solid rgba(255,255,255,.18); border-radius: 6px;
-  background: linear-gradient(145deg, #ff5967, #bd1528 76%);
-  box-shadow: 0 12px 28px rgba(210, 25, 45, .28); overflow: hidden;
-}
-.brand__mark::after { content: ""; position: absolute; width: 24px; height: 58px; left: -10px; top: -8px; background: rgba(255,255,255,.16); transform: rotate(24deg); }
-.brand__mark-core { position: relative; z-index: 1; font-weight: 900; font-size: 25px; line-height: 1; letter-spacing: -.08em; }
-.brand__name { margin-left: 11px; font-size: 21px; font-weight: 800; letter-spacing: -.045em; }
-.brand__name strong { color: #ff6672; font-weight: 900; }
-.brand--compact .brand__mark { width: 36px; height: 36px; }
+.brand__logo { height: 38px; width: auto; object-fit: contain; display: block; }
+.brand__logo--compact { height: 32px; }
+
 
 .top-nav {
   position: fixed; z-index: 50; top: 0; left: 0; right: 0; height: var(--nav-height);
