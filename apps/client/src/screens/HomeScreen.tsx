@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { navigate } from "../lib/router";
-import type { HomePayload } from "../types";
+import type { CatalogItem, HomePayload } from "../types";
 import { Loading } from "../components/Loading";
 import { Poster } from "../components/Poster";
 import { Rail } from "../components/Rail";
@@ -12,6 +12,19 @@ export function HomeScreen() {
 
   useEffect(() => {
     api.home().then(setPayload).catch((reason) => setError(reason instanceof Error ? reason.message : "Catalogo non disponibile"));
+  }, []);
+
+  const dismissContinue = useCallback((item: CatalogItem) => {
+    const contentType = item.resumeContent?.type ?? "item";
+    const contentId = item.resumeContent?.id ?? item.id;
+    api.dismissProgress(contentType, contentId).catch(() => {});
+    setPayload((prev) => {
+      if (!prev) return prev;
+      const rows = prev.rows.map((row) =>
+        row.id !== "continue" ? row : { ...row, items: row.items.filter((i) => i.id !== item.id) }
+      ).filter((row) => row.id !== "continue" || row.items.length > 0);
+      return { ...prev, rows };
+    });
   }, []);
 
   if (error) return <div className="empty-state"><h1>Catalogo non disponibile</h1><p>{error}</p><button data-focusable="true" className="primary-button" onClick={() => navigate("setup")}>Configura playlist</button></div>;
@@ -52,7 +65,7 @@ export function HomeScreen() {
         </section>
       )}
       <div className="home-rails">
-        {payload.rows.map((row) => <Rail key={row.id} row={row} />)}
+        {payload.rows.map((row) => <Rail key={row.id} row={row} onDismiss={row.id === "continue" ? dismissContinue : undefined} />)}
         <div className="home-browse">
           <button className="secondary-button" data-focusable="true" onClick={() => navigate("search")}>
             Sfoglia tutto il catalogo

@@ -211,6 +211,16 @@ async function handler(request, response) {
       return sendJson(response, 200, { progress: saveProgress(auth.sub, body) });
     }
 
+    match = routeMatch(pathname, /^\/api\/progress\/([^/]+)\/([^/]+)$/);
+    if (match && request.method === "DELETE") {
+      const auth = requireAuth(request);
+      const [contentType, contentId] = match;
+      if (contentType !== "item" && contentType !== "episode") throw new HttpError(400, "Tipo non valido", "invalid_content_type");
+      db.prepare("DELETE FROM progress WHERE user_id = ? AND content_type = ? AND content_id = ?")
+        .run(auth.sub, contentType, contentId);
+      return sendNoContent(response);
+    }
+
     if (request.method === "POST" && pathname === "/api/devices") {
       const auth = requireAuth(request);
       const body = await readJson(request);

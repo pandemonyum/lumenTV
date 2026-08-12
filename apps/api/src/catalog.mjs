@@ -166,41 +166,74 @@ export function listCatalog(userId, options = {}) {
   return rows.map(serializeItem);
 }
 
-// Un solo item per titolo curato: MIN(match_score) sceglie la corrispondenza migliore fra le varianti.
-const trendingRowStatement = db.prepare(`
-  SELECT i.*,
-    CASE WHEN f.item_id IS NULL THEN 0 ELSE 1 END AS favorite,
-    t.rank AS trending_rank,
-    t.poster_image_id AS trending_poster_image_id,
-    t.backdrop_image_id AS trending_backdrop_image_id,
-    t.overview AS trending_overview,
-    MIN(
-      CASE
-        WHEN i.normalized_title = t.normalized_title THEN 0
-        WHEN i.normalized_title = t.normalized_original_title THEN 100
-        ELSE 200
-      END
-      + CASE WHEN i.image_id IS NOT NULL THEN 0 ELSE 10 END
-      + CASE WHEN t.year IS NULL OR i.year IS NULL OR i.year = t.year THEN 0 ELSE 5 END
-      + LENGTH(i.normalized_title)
-    ) AS match_score
-  FROM trending_entries t
-  JOIN items i
-    ON i.user_id = ?
-   AND i.active = 1
-   AND i.kind = t.kind
-   AND i.normalized_title != ''
-   AND (
-     i.normalized_title = t.normalized_title
-     OR i.normalized_title = t.normalized_original_title
-     OR i.normalized_title LIKE t.normalized_title || ' %'
-   )
-  LEFT JOIN favorites f ON f.item_id = i.id AND f.user_id = i.user_id
-  WHERE t.list = ?
-  GROUP BY t.id
-  ORDER BY t.rank
-  LIMIT ?
+// Voci di ciascuna lista di curatela, gia' ordinate per rank (poche decine di righe).
+const curatedEntriesStatement = db.prepare(`
+  SELECT kind, normalized_title, normalized_original_title, year, rank, overview, poster_image_id, backdrop_image_id
+  FROM trending_entries
+  WHERE list = ?
+  ORDER BY rank
 `);
+
+// Match esatto sul titolo normalizzato: usa idx_items_normalized_title con una ricerca indicizzata.
+// Solo voci con almeno uno stream o episodio attivo: evita di mostrare titoli senza URL di riproduzione.
+const curatedExactStatement = db.prepare(`
+  SELECT i.*, CASE WHEN f.item_id IS NULL THEN 0 ELSE 1 END AS favorite
+  FROM items i
+  LEFT JOIN favorites f ON f.item_id = i.id AND f.user_id = i.user_id
+  WHERE i.user_id = ? AND i.active = 1 AND i.kind = ? AND i.normalized_title = ? AND i.normalized_title != ''
+    AND (
+      EXISTS (SELECT 1 FROM streams WHERE item_id = i.id AND active = 1)
+      OR EXISTS (SELECT 1 FROM episodes WHERE series_id = i.id AND active = 1)
+    )
+`);
+
+// Match "titolo + episodio/variante": range su idx_items_normalized_title invece di un LIKE
+// con pattern calcolato riga per riga, che SQLite non puo' trasformare in una ricerca su indice.
+const curatedPrefixStatement = db.prepare(`
+  SELECT i.*, CASE WHEN f.item_id IS NULL THEN 0 ELSE 1 END AS favorite
+  FROM items i
+  LEFT JOIN favorites f ON f.item_id = i.id AND f.user_id = i.user_id
+  WHERE i.user_id = ? AND i.active = 1 AND i.kind = ?
+    AND i.normalized_title >= ? AND i.normalized_title < ? AND i.normalized_title != ''
+    AND (
+      EXISTS (SELECT 1 FROM streams WHERE item_id = i.id AND active = 1)
+      OR EXISTS (SELECT 1 FROM episodes WHERE series_id = i.id AND active = 1)
+    )
+`);
+
+function curatedMatchScore(item, entry, baseScore) {
+  return baseScore
+    + (item.image_id ? 0 : 10)
+    + (entry.year === null || item.year === null || item.year === entry.year ? 0 : 5)
+    + item.normalized_title.length;
+}
+
+// Fra le varianti che corrispondono alla stessa voce curata, sceglie quella con punteggio piu' basso
+// (match piu' preciso, con immagine, con anno corrispondente, titolo piu' corto).
+function findBestCuratedMatch(userId, entry) {
+  let best = null;
+  let bestScore = Infinity;
+  const consider = (rows, baseScore) => {
+    for (const row of rows) {
+      const score = curatedMatchScore(row, entry, baseScore);
+      if (score < bestScore) {
+        bestScore = score;
+        best = row;
+      }
+    }
+  };
+  if (entry.normalized_title) {
+    consider(curatedExactStatement.all(userId, entry.kind, entry.normalized_title), 0);
+  }
+  if (entry.normalized_original_title && entry.normalized_original_title !== entry.normalized_title) {
+    consider(curatedExactStatement.all(userId, entry.kind, entry.normalized_original_title), 100);
+  }
+  if (entry.normalized_title) {
+    const prefix = `${entry.normalized_title} `;
+    consider(curatedPrefixStatement.all(userId, entry.kind, prefix, `${prefix}￿`), 200);
+  }
+  return best;
+}
 
 function serializeCuratedItem(row) {
   const item = serializeItem(row);
@@ -218,10 +251,17 @@ function getCuratedRows(userId, itemLimit) {
   for (const list of TRENDING_LISTS) {
     const seen = new Set();
     const items = [];
-    for (const row of trendingRowStatement.all(userId, list.id, itemLimit)) {
-      if (seen.has(row.id)) continue;
-      seen.add(row.id);
-      const item = serializeCuratedItem(row);
+    for (const entry of curatedEntriesStatement.all(list.id)) {
+      if (items.length >= itemLimit) break;
+      const match = findBestCuratedMatch(userId, entry);
+      if (!match || seen.has(match.id)) continue;
+      seen.add(match.id);
+      const item = serializeCuratedItem({
+        ...match,
+        trending_poster_image_id: entry.poster_image_id,
+        trending_backdrop_image_id: entry.backdrop_image_id,
+        trending_overview: entry.overview
+      });
       if (!safeItemFilter(item)) continue;
       items.push(item);
     }

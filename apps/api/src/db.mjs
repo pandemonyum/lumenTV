@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS items (
 CREATE INDEX IF NOT EXISTS idx_items_user_kind ON items(user_id, kind, active, category_id, title);
 CREATE INDEX IF NOT EXISTS idx_items_playlist ON items(playlist_id, active);
 CREATE INDEX IF NOT EXISTS idx_items_normalized_title ON items(user_id, active, kind, normalized_title);
+CREATE INDEX IF NOT EXISTS idx_items_user_active_title ON items(user_id, active, title COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS streams (
   id TEXT PRIMARY KEY,

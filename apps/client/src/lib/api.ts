@@ -138,6 +138,9 @@ export const api = {
       body: JSON.stringify(payload)
     });
   },
+  dismissProgress(contentType: "item" | "episode", contentId: string): Promise<void> {
+    return request(`/api/progress/${encodeURIComponent(contentType)}/${encodeURIComponent(contentId)}`, { method: "DELETE" });
+  },
   registerDevice(payload: {
     id: string;
     name: string;
