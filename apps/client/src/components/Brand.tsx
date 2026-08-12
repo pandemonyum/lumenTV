@@ -1,8 +1,14 @@
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <div className={compact ? "brand brand--compact" : "brand"} aria-label="LumenTV">
-      <span className="brand__mark">L</span>
-      {!compact && <span className="brand__name">LumenTV</span>}
-    </div>
+    <span className={compact ? "brand brand--compact" : "brand"} aria-label="LumenTV">
+      <span className="brand__mark" aria-hidden="true">
+        <span className="brand__mark-core">L</span>
+      </span>
+      {!compact && (
+        <span className="brand__name">
+          <span>Lumen</span><strong>TV</strong>
+        </span>
+      )}
+    </span>
   );
 }

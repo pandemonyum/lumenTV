@@ -95,7 +95,7 @@ export default function App() {
   const isPlayer = route.name === "player";
   return (
     <div className={isPlayer ? "app app--player" : "app"}>
-      {!isPlayer && <TopNav onLogout={logout} />}
+      {!isPlayer && <TopNav onLogout={logout} routeName={route.name} />}
       {route.name === "home" && <HomeScreen />}
       {route.name === "setup" && <SetupScreen />}
       {route.name === "search" && <SearchScreen />}

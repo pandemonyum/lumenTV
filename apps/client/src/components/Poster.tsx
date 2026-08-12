@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 
 export function Poster({
@@ -13,6 +13,11 @@ export function Poster({
   letterbox?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [imagePath]);
+
   const source = failed ? null : api.imageUrl(imagePath);
   if (!source) {
     return (
