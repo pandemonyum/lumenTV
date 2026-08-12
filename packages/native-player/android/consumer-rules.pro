@@ -1,0 +1,2 @@
+-keep class com.lumentv.player.NativePlayerPlugin { *; }
+-keep class com.lumentv.player.PremiumPlayerActivity { *; }

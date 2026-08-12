@@ -1,0 +1,24 @@
+{
+  "name": "lumentv",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace @lumentv/api run dev",
+    "dev:web": "npm --workspace @lumentv/client run dev",
+    "build:web": "npm --workspace @lumentv/client run build:web",
+    "build:webos": "npm --workspace @lumentv/client run build:webos",
+    "sync:mobile": "npm --workspace @lumentv/client run cap:sync",
+    "test": "node --test packages/core/test/*.test.mjs apps/api/test/*.test.mjs",
+    "start": "npm --workspace @lumentv/api run start",
+    "probe:vod": "node tools/probe-vod.mjs",
+    "benchmark:parser": "node tools/benchmark-parser.mjs"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

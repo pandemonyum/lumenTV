@@ -1,0 +1,12 @@
+{
+  "id": "com.lumentv.app",
+  "version": "0.1.0",
+  "vendor": "LumenTV",
+  "type": "web",
+  "main": "index.html",
+  "title": "LumenTV",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "backgroundColor": "#08090b",
+  "resolution": "1920x1080"
+}

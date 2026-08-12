@@ -1,0 +1,37 @@
+{
+  "name": "@lumentv/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:web": "tsc -b && vite build --mode web",
+    "build:webos": "tsc -b && vite build --mode webos && node scripts/prepare-webos.mjs",
+    "package:webos": "node scripts/package-webos.mjs",
+    "cap:add:ios": "cap add ios && node scripts/configure-native.mjs",
+    "cap:add:android": "cap add android && node scripts/configure-native.mjs",
+    "cap:sync": "cap sync && node scripts/configure-native.mjs",
+    "cap:open:ios": "cap open ios",
+    "cap:open:android": "cap open android",
+    "cap:configure": "node scripts/configure-native.mjs"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.4.2",
+    "@lumentv/native-player": "0.1.0",
+    "hls.js": "1.6.16",
+    "mpegts.js": "1.8.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/ios": "^8.4.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-legacy": "^6.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.1.1"
+  }
+}

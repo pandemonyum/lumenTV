@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+coverage/
+.env
+*.log
+.DS_Store
+data/*.sqlite
+data/*.sqlite-*
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/images/*
+!data/images/.gitkeep
+apps/client/android/
+apps/client/ios/
+*.ipk

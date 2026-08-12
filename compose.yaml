@@ -1,0 +1,12 @@
+services:
+  lumentv:
+    build: .
+    ports:
+      - "8787:8787"
+    environment:
+      LUMENTV_SECRET: "${LUMENTV_SECRET:?impostare LUMENTV_SECRET nel file .env}"
+      LUMENTV_PUBLIC_BASE_URL: "${LUMENTV_PUBLIC_BASE_URL:-http://localhost:8787}"
+      LUMENTV_ALLOWED_ORIGINS: "${LUMENTV_ALLOWED_ORIGINS:-http://localhost:8787,null}"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

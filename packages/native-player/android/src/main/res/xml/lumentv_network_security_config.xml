@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Prototipo interno: le playlist possono contenere host HTTP dinamici. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
