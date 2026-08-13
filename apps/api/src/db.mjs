@@ -101,6 +101,8 @@ CREATE TABLE IF NOT EXISTS trending_entries (
 );
 CREATE INDEX IF NOT EXISTS idx_trending_list ON trending_entries(list, rank);
 CREATE INDEX IF NOT EXISTS idx_trending_match ON trending_entries(normalized_title, kind);
+CREATE INDEX IF NOT EXISTS idx_trending_poster_image ON trending_entries(poster_image_id);
+CREATE INDEX IF NOT EXISTS idx_trending_backdrop_image ON trending_entries(backdrop_image_id);
 
 CREATE TABLE IF NOT EXISTS items (
   id TEXT PRIMARY KEY,
@@ -124,6 +126,7 @@ CREATE INDEX IF NOT EXISTS idx_items_user_kind ON items(user_id, kind, active, c
 CREATE INDEX IF NOT EXISTS idx_items_playlist ON items(playlist_id, active);
 CREATE INDEX IF NOT EXISTS idx_items_normalized_title ON items(user_id, active, kind, normalized_title);
 CREATE INDEX IF NOT EXISTS idx_items_user_active_title ON items(user_id, active, title COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_items_image_id ON items(image_id);
 
 CREATE TABLE IF NOT EXISTS streams (
   id TEXT PRIMARY KEY,
@@ -155,6 +158,7 @@ CREATE TABLE IF NOT EXISTS episodes (
   UNIQUE(series_id, season_number, episode_number)
 );
 CREATE INDEX IF NOT EXISTS idx_episodes_series ON episodes(series_id, active, season_number, episode_number);
+CREATE INDEX IF NOT EXISTS idx_episodes_image_id ON episodes(image_id);
 
 CREATE TABLE IF NOT EXISTS favorites (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

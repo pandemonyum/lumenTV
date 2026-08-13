@@ -8,6 +8,9 @@
     "start": "node src/server.mjs",
     "test": "node --test test/*.test.mjs"
   },
+  "dependencies": {
+    "sharp": "^0.34.2"
+  },
   "engines": {
     "node": ">=22.5.0"
   }

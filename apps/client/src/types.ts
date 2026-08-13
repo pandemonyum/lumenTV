@@ -79,6 +79,8 @@ export type TrendingStatus = {
 
 export type MaintenanceResult = {
   playlistsCleaned: number;
+  imagesDeleted: number;
+  imageBytesFreed: number;
   bytesBefore: number;
   bytesAfter: number;
   bytesFreed: number;

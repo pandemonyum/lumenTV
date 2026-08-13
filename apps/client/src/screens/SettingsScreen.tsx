@@ -153,15 +153,17 @@ export function SettingsScreen() {
       <section className="panel settings-panel">
         <h2>Manutenzione database</h2>
         <p className="form-hint">
-          Rimuove dal database le righe rimaste inattive dopo le sincronizzazioni delle playlist e ricompatta il file
-          (VACUUM). L'operazione può richiedere qualche secondo su cataloghi grandi.
+          Rimuove dal database le righe rimaste inattive dopo le sincronizzazioni delle playlist, le immagini in cache
+          non più collegate a nulla, e ricompatta il file (VACUUM). L'operazione può richiedere qualche secondo su
+          cataloghi grandi.
         </p>
         <button className="secondary-button" data-focusable="true" disabled={maintenanceBusy} onClick={runMaintenance}>
           {maintenanceBusy ? "Pulizia in corso…" : "Pulisci database e libera spazio"}
         </button>
         {maintenanceResult && (
           <p className="form-hint">
-            {maintenanceResult.playlistsCleaned} playlist ripulite. Dimensione database: {formatBytes(maintenanceResult.bytesBefore)}{" "}
+            {maintenanceResult.playlistsCleaned} playlist ripulite, {maintenanceResult.imagesDeleted} immagini orfane
+            rimosse ({formatBytes(maintenanceResult.imageBytesFreed)}). Dimensione database: {formatBytes(maintenanceResult.bytesBefore)}{" "}
             → {formatBytes(maintenanceResult.bytesAfter)} ({formatBytes(maintenanceResult.bytesFreed)} liberati).
           </p>
         )}

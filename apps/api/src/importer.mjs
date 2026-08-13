@@ -183,16 +183,44 @@ function pruneInactive(playlistId) {
   });
 }
 
-// Pulizia manuale: rimuove il residuo "active = 0" di tutte le playlist dell'utente
-// e ricompatta il file, invece di aspettare il prossimo import di ciascuna playlist.
+// Cancella le immagini che nessun item/episodio/voce di curatela referenzia piu' (es. lasciate
+// orfane da pruneInactive), sia la riga in DB sia il file scaricato su disco.
+function pruneOrphanedImages() {
+  const orphaned = db.prepare(`
+    SELECT id, local_path FROM images i
+    WHERE NOT EXISTS (SELECT 1 FROM items WHERE image_id = i.id)
+      AND NOT EXISTS (SELECT 1 FROM episodes WHERE image_id = i.id)
+      AND NOT EXISTS (SELECT 1 FROM trending_entries WHERE poster_image_id = i.id OR backdrop_image_id = i.id)
+  `).all();
+  let bytesFreed = 0;
+  for (const image of orphaned) {
+    if (image.local_path) {
+      try {
+        bytesFreed += fs.statSync(image.local_path).size;
+        fs.unlinkSync(image.local_path);
+      } catch { /* file gia' assente */ }
+    }
+  }
+  transaction(() => {
+    const deleteStatement = db.prepare("DELETE FROM images WHERE id = ?");
+    for (const image of orphaned) deleteStatement.run(image.id);
+  });
+  return { imagesDeleted: orphaned.length, bytesFreed };
+}
+
+// Pulizia manuale: rimuove il residuo "active = 0" di tutte le playlist dell'utente,
+// le immagini orfane, e ricompatta il file, invece di aspettare il prossimo import.
 export function runMaintenance(userId) {
   const bytesBefore = fs.statSync(config.databasePath).size;
   const playlistIds = db.prepare("SELECT id FROM playlists WHERE user_id = ?").all(userId).map((row) => row.id);
   for (const playlistId of playlistIds) pruneInactive(playlistId);
+  const imageResult = pruneOrphanedImages();
   db.exec("VACUUM");
   const bytesAfter = fs.statSync(config.databasePath).size;
   return {
     playlistsCleaned: playlistIds.length,
+    imagesDeleted: imageResult.imagesDeleted,
+    imageBytesFreed: imageResult.bytesFreed,
     bytesBefore,
     bytesAfter,
     bytesFreed: Math.max(0, bytesBefore - bytesAfter)
