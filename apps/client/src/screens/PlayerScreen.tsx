@@ -322,6 +322,8 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
       showControls(true);
     };
     const onPause = () => {
+      if (waitingTimer.current) window.clearTimeout(waitingTimer.current);
+      waitingTimer.current = null;
       if (!retrying.current && !video.ended) setStatus("paused");
     };
     const onWaiting = () => {

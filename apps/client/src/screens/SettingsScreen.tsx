@@ -20,7 +20,7 @@ function formatExpiry(value: string): string {
 export function SettingsScreen() {
   const [profile, setProfile] = useState<BufferProfile>(getBufferProfile());
   const [autoResumePlayback, setAutoResumePlayback] = useState(
-    window.localStorage.getItem("lumentv.auto.resume.playback") !== "false"
+    window.localStorage.getItem("lumentv.auto.resume.playback") === "true"
   );
   const [trending, setTrending] = useState<TrendingStatus | null>(null);
   const [trendingBusy, setTrendingBusy] = useState(false);

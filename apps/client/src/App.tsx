@@ -68,7 +68,7 @@ export default function App() {
     }).catch(() => {});
 
     if (platform === "webos" && route.name === "home") {
-      const autoResume = window.localStorage.getItem("lumentv.auto.resume.playback") !== "false";
+      const autoResume = window.localStorage.getItem("lumentv.auto.resume.playback") === "true";
       const lastPlayback = readLastPlayback();
       if (autoResume && lastPlayback) {
         navigate(`player/${lastPlayback.sourceType}/${lastPlayback.id}`);
