@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import legacy from "@vitejs/plugin-legacy";
@@ -5,6 +6,9 @@ import legacy from "@vitejs/plugin-legacy";
 export default defineConfig(({ mode }) => {
   const isWebOs = mode === "webos";
   return {
+    // Il monorepo tiene un solo .env in root (vedi README): Vite per default lo cercherebbe
+    // qui in apps/client, non trovandolo mai.
+    envDir: path.resolve(__dirname, "../.."),
     base: isWebOs ? "./" : "/",
     plugins: [
       react(),

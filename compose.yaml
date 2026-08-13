@@ -10,3 +10,25 @@ services:
     volumes:
       - ./data:/app/data
     restart: unless-stopped
+
+  # Facoltativo: HTTPS automatico (Let's Encrypt) per un dominio pubblico, es. su una VPS.
+  # Richiede LUMENTV_DOMAIN nel .env. Non necessario per l'uso in sola LAN.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["public"]
+    depends_on:
+      - lumentv
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      LUMENTV_DOMAIN: "${LUMENTV_DOMAIN:?impostare LUMENTV_DOMAIN nel file .env}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

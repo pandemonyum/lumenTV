@@ -1,0 +1,3 @@
+{$LUMENTV_DOMAIN} {
+	reverse_proxy lumentv:8787
+}
