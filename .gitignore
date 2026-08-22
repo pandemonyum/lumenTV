@@ -16,3 +16,4 @@ apps/client/ios/
 *.ipk
 /apps/api/data/images
 /apps/api/data
+apps/api/data.rar

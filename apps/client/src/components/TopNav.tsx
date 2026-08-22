@@ -3,11 +3,12 @@ import { navigate } from "../lib/router";
 import { Brand } from "./Brand";
 
 type RouteName = Route["name"];
-type NavKey = "home" | "groups" | "setup" | "search" | "settings";
+type NavKey = "home" | "live" | "groups" | "setup" | "search" | "settings";
 
 function currentSection(routeName: RouteName): NavKey | null {
   if (routeName === "group") return "groups";
-  if (routeName === "home" || routeName === "groups" || routeName === "setup" || routeName === "search" || routeName === "settings") {
+  if (routeName === "live-category") return "live";
+  if (routeName === "home" || routeName === "live" || routeName === "groups" || routeName === "setup" || routeName === "search" || routeName === "settings") {
     return routeName;
   }
   return null;
@@ -65,6 +66,15 @@ export function TopNav({ onLogout, routeName }: { onLogout: () => void; routeNam
           onClick={() => navigate("home")}
         >
           Home
+        </button>
+        <button
+          type="button"
+          className={linkClass("live")}
+          data-focusable="true"
+          aria-current={current === "live" ? "page" : undefined}
+          onClick={() => navigate("live")}
+        >
+          Dirette
         </button>
         <button
           type="button"

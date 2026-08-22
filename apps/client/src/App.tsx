@@ -14,6 +14,7 @@ import { ItemScreen } from "./screens/ItemScreen";
 import { PlayerScreen } from "./screens/PlayerScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { GroupsScreen } from "./screens/GroupsScreen";
+import { LiveScreen } from "./screens/LiveScreen";
 
 export default function App() {
   const route = useHashRoute();
@@ -22,10 +23,13 @@ export default function App() {
   );
   const initializedTokenRef = useRef<string | null>(null);
 
+  // Chiave sull'intera rotta, non solo route.name: passare da un episodio al successivo (stesso
+  // "player", id diverso) deve rifare l'aggancio del focus tanto quanto un cambio di schermata.
+  const routeKey = JSON.stringify(route);
   useEffect(() => {
     document.body.dataset.platform = getPlatform();
     return installLgNavigation();
-  }, [route.name]);
+  }, [routeKey]);
 
   useEffect(() => {
     if (!authStore.getToken()) {
@@ -101,6 +105,8 @@ export default function App() {
       {route.name === "search" && <SearchScreen />}
       {route.name === "groups" && <GroupsScreen />}
       {route.name === "group" && <GroupsScreen groupId={route.id} />}
+      {route.name === "live" && <LiveScreen />}
+      {route.name === "live-category" && <LiveScreen categoryId={route.id} />}
       {route.name === "settings" && <SettingsScreen />}
       {route.name === "item" && <ItemScreen id={route.id} />}
       {route.name === "player" && <PlayerScreen sourceType={route.sourceType} id={route.id} />}

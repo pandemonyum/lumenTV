@@ -12,7 +12,11 @@ if (!fs.existsSync(path.join(appDir, "appinfo.json"))) {
   throw new Error("App webOS non preparata. Eseguire npm run build:webos.");
 }
 fs.mkdirSync(outputDir, { recursive: true });
-const result = spawnSync("ares-package", [appDir, "-o", outputDir], { stdio: "inherit", shell: false });
+// Su Windows ares-package e un file .cmd: senza shell Node non riesce a eseguirlo (ENOENT)
+// anche se il comando e presente nel PATH.
+// --no-minify: il bundle e gia minificato da Vite; il minifier interno di ares-package non
+// riconosce sintassi JS moderna (es. optional chaining) e fallisce su una seconda passata.
+const result = spawnSync("ares-package", [appDir, "-o", outputDir, "--no-minify"], { stdio: "inherit", shell: process.platform === "win32" });
 if (result.error?.code === "ENOENT") {
   console.error("ares-package non trovato. Installare webOS CLI o usare webOS Studio per creare il pacchetto IPK.");
   process.exitCode = 2;

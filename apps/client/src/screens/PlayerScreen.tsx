@@ -3,11 +3,14 @@ import { NativePlayer } from "@lumentv/native-player";
 import { api } from "../lib/api";
 import { getBufferProfile, BUFFER_PROFILES, RetryController } from "../lib/retry";
 import { getPlatform } from "../lib/platform";
+import { setBackHandler } from "../lib/lgNavigation";
+import { navigate } from "../lib/router";
 import { clearLastPlayback, saveLastPlayback } from "../lib/playbackMemory";
 import { attachWebMediaEngine, type WebMediaEngine, type WebMediaEngineKind } from "../lib/webMediaEngine";
 import { qualityLabel, codecLabel } from "../lib/streamLabels";
-import type { PlaybackSource } from "../types";
+import type { Episode, PlaybackSource } from "../types";
 import { Loading } from "../components/Loading";
+import { Poster } from "../components/Poster";
 
 function pad2(value: number): string {
   return value < 10 ? `0${value}` : String(value);
@@ -31,6 +34,10 @@ export function PlayerScreen({ sourceType, id }: { sourceType: "stream" | "episo
   const platform = getPlatform();
 
   useEffect(() => {
+    // Reset esplicito: se l'id cambia mentre la schermata resta montata (es. "prossimo episodio"),
+    // senza questo la vecchia sorgente resterebbe visibile, ferma, finche non arriva quella nuova.
+    setSource(null);
+    setError(null);
     const request = sourceType === "episode" ? api.resolveEpisode(id) : api.resolveStream(id);
     request.then(({ source: value }) => setSource(value)).catch((reason) => setError(reason instanceof Error ? reason.message : "Sorgente non disponibile"));
   }, [id, sourceType]);
@@ -77,7 +84,9 @@ export function PlayerScreen({ sourceType, id }: { sourceType: "stream" | "episo
   }
   if (!source) return <Loading label="Apertura sorgente" />;
   if (platform === "ios" || platform === "android") return <Loading label="Apertura player nativo" />;
-  return <WebPlayer source={source} />;
+  // key sul contentId: forza un remount pulito quando si passa ad un altro episodio, cosi stato e
+  // ref interni (es. la pausa volontaria dell'utente) non restano agganciati alla puntata precedente.
+  return <WebPlayer key={source.contentId} source={source} />;
 }
 
 function localCheckpointKey(source: PlaybackSource): string {
@@ -92,7 +101,10 @@ const ICON = {
   muted: "M3 9v6h4l5 5V4L7 9zm18.5-.9L20.1 6.7 17.8 9l-2.3-2.3-1.4 1.4 2.3 2.3-2.3 2.3 1.4 1.4 2.3-2.3 2.3 2.3 1.4-1.4-2.3-2.3z",
   retry: "M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z",
   fullscreen: "M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z",
-  exitFullscreen: "M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z"
+  exitFullscreen: "M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z",
+  episodes: "M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z",
+  nextEpisode: "M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z",
+  close: "M18.3 5.71 12 12l6.29 6.29-1.41 1.42L10.59 13.41 4.3 19.71 2.88 18.29 9.17 12 2.88 5.71 4.3 4.29l6.29 6.3 6.29-6.3z"
 };
 
 function Icon({ path, size = 26 }: { path: string; size?: number }): JSX.Element {
@@ -163,6 +175,7 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
   const engineEpoch = useRef(0);
   const retryPolicy = useRef(new RetryController());
   const retrying = useRef(false);
+  const userPaused = useRef(false);
   const disposed = useRef(false);
   const lastTime = useRef(0);
   const lastAdvancedAt = useRef(Date.now());
@@ -185,6 +198,92 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
+  const [seriesEpisodes, setSeriesEpisodes] = useState<Episode[] | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  const [episodePanelOpen, setEpisodePanelOpen] = useState(false);
+  const episodesButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (source.contentType !== "episode" || !source.seriesId) {
+      setSeriesEpisodes(null);
+      return;
+    }
+    let active = true;
+    api.item(source.seriesId).then(({ item }) => {
+      if (!active) return;
+      const episodes = item.episodes || [];
+      setSeriesEpisodes(episodes);
+      const current = episodes.find((episode) => episode.id === source.contentId);
+      setSelectedSeason(current?.seasonNumber ?? episodes[0]?.seasonNumber ?? null);
+    }).catch(() => {
+      if (active) setSeriesEpisodes(null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [source.contentType, source.seriesId, source.contentId]);
+
+  const sortedEpisodes = seriesEpisodes
+    ? [...seriesEpisodes].sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)
+    : [];
+  const currentEpisodeIndex = sortedEpisodes.findIndex((episode) => episode.id === source.contentId);
+  const nextEpisode = currentEpisodeIndex >= 0 ? sortedEpisodes[currentEpisodeIndex + 1] : undefined;
+  const seasonNumbers = Array.from(new Set(sortedEpisodes.map((episode) => episode.seasonNumber))).sort((a, b) => a - b);
+  const episodesInSeason = sortedEpisodes.filter((episode) => selectedSeason === null || episode.seasonNumber === selectedSeason);
+
+  function openEpisodePanel() {
+    setEpisodePanelOpen(true);
+  }
+
+  function closeEpisodePanel() {
+    setEpisodePanelOpen(false);
+  }
+
+  function playNextEpisode() {
+    if (!nextEpisode) return;
+    navigate(`player/episode/${nextEpisode.id}`);
+  }
+
+  function selectEpisode(episode: Episode) {
+    if (episode.id === source.contentId) {
+      closeEpisodePanel();
+      return;
+    }
+    navigate(`player/episode/${episode.id}`);
+  }
+
+  function handleBack() {
+    // Coerente con il tasto Back fisico: se il pannello episodi e aperto lo chiude soltanto,
+    // non fa uscire subito dal player.
+    if (episodePanelOpen) {
+      closeEpisodePanel();
+      return;
+    }
+    window.history.back();
+  }
+
+  useEffect(() => {
+    setBackHandler(() => {
+      if (!episodePanelOpen) return false;
+      closeEpisodePanel();
+      return true;
+    });
+    return () => setBackHandler(null);
+  }, [episodePanelOpen]);
+
+  useEffect(() => {
+    if (!episodePanelOpen) return;
+    const timer = window.setTimeout(() => {
+      const panel = document.querySelector(".player-episode-panel");
+      const current = panel?.querySelector<HTMLElement>("[data-current='true']");
+      const target = current || panel?.querySelector<HTMLElement>("[data-focusable='true']");
+      target?.focus();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      episodesButtonRef.current?.focus();
+    };
+  }, [episodePanelOpen]);
 
   const persist = useCallback(async (forceCompleted = false, syncRemote = true) => {
     const video = videoRef.current;
@@ -277,8 +376,15 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
       if (!source.isLive && checkpoint > 0 && Number.isFinite(video.duration)) {
         video.currentTime = Math.min(checkpoint, Math.max(0, video.duration - 1));
       }
-      await video.play();
-      setStatus("playing");
+      // Un retry non deve annullare una pausa scelta dall'utente: si ricrea il motore e si
+      // riposiziona lo stream, ma si riparte solo se non era stato messo in pausa volutamente.
+      if (userPaused.current) {
+        video.pause();
+        setStatus("paused");
+      } else {
+        await video.play();
+        setStatus("playing");
+      }
       lastTime.current = video.currentTime || checkpoint;
       lastAdvancedAt.current = Date.now();
       stablePlaybackStartedAt.current = Date.now();
@@ -311,9 +417,18 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
       if (!source.isLive && localResume.current > 0 && knownDuration > 0) {
         video.currentTime = Math.min(localResume.current, Math.max(0, knownDuration - 1));
       }
-      video.play().catch(() => setStatus("paused"));
+      // "loadedmetadata" scatta anche quando hardRetry ricarica il sorgente: senza questo
+      // controllo un retry durante la pausa la annullava sempre.
+      if (userPaused.current) setStatus("paused");
+      else video.play().catch(() => setStatus("paused"));
     };
     const onPlaying = () => {
+      // Rete di sicurezza: se qualcosa (autoplay nativo, firmware) fa ripartire il video
+      // mentre l'utente lo aveva messo in pausa, lo si rimette subito in pausa.
+      if (userPaused.current) {
+        video.pause();
+        return;
+      }
       setStatus("playing");
       lastAdvancedAt.current = Date.now();
       if (stablePlaybackStartedAt.current === null) stablePlaybackStartedAt.current = Date.now();
@@ -327,7 +442,7 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
       if (!retrying.current && !video.ended) setStatus("paused");
     };
     const onWaiting = () => {
-      if (retrying.current) return;
+      if (retrying.current || userPaused.current) return;
       setStatus("buffering");
       setControlsVisible(true);
       if (hideTimer.current) window.clearTimeout(hideTimer.current);
@@ -365,7 +480,7 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
     video.addEventListener("timeupdate", onTime);
 
     const stallMonitor = window.setInterval(() => {
-      if (video.paused || video.ended || retrying.current) return;
+      if (userPaused.current || video.paused || video.ended || retrying.current) return;
       const now = Date.now();
       if (stablePlaybackStartedAt.current !== null && now - stablePlaybackStartedAt.current >= 10000) {
         retryPolicy.current.reset();
@@ -383,8 +498,8 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
     const localSaver = window.setInterval(() => void persist(false, false), 5000);
     const remoteSaver = window.setInterval(() => void persist(false, true), 10000);
 
-    const remotePlay = () => video.play().catch(() => {});
-    const remotePause = () => video.pause();
+    const remotePlay = () => { userPaused.current = false; video.play().catch(() => {}); };
+    const remotePause = () => { userPaused.current = true; video.pause(); };
     window.addEventListener("lumentv:play", remotePlay);
     window.addEventListener("lumentv:pause", remotePause);
     showControls(true);
@@ -446,8 +561,13 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
   function togglePlay() {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) video.play().catch(() => {});
-    else video.pause();
+    if (video.paused) {
+      userPaused.current = false;
+      video.play().catch(() => {});
+    } else {
+      userPaused.current = true;
+      video.pause();
+    }
     showControls(true);
   }
 
@@ -513,7 +633,7 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
       <video ref={videoRef} className="player-video" />
       <div className={controlsVisible ? "player-overlay player-overlay--visible" : "player-overlay"}>
         <div className="player-topbar">
-          <button className="player-back" data-focusable="true" aria-label="Indietro" onClick={() => window.history.back()}>
+          <button className="player-back" data-focusable="true" aria-label="Indietro" onClick={handleBack}>
             <Icon path={ICON.back} size={34} />
           </button>
           <div className="player-status">
@@ -529,6 +649,7 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
           </div>
         )}
 
+        {!episodePanelOpen && (
         <div className="player-controls">
           {!source.isLive && (
             <div className="player-timeline">
@@ -569,6 +690,11 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
                   </button>
                 </>
               )}
+              {nextEpisode && (
+                <button data-focusable="true" aria-label="Episodio successivo" onClick={playNextEpisode}>
+                  <Icon path={ICON.nextEpisode} size={30} />
+                </button>
+              )}
               <div className="player-volume">
                 <button data-focusable="true" aria-label={muted ? "Riattiva audio" : "Disattiva audio"} onClick={toggleMute}>
                   <Icon path={muted ? ICON.muted : ICON.volume} />
@@ -593,6 +719,16 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
             </div>
 
             <div className="player-bar__group player-bar__group--right">
+              {sortedEpisodes.length > 0 && (
+                <button
+                  ref={episodesButtonRef}
+                  data-focusable="true"
+                  aria-label="Episodi e stagioni"
+                  onClick={openEpisodePanel}
+                >
+                  <Icon path={ICON.episodes} />
+                </button>
+              )}
               <button data-focusable="true" aria-label="Riprova" onClick={() => void hardRetry("retry manuale")}>
                 <Icon path={ICON.retry} />
               </button>
@@ -609,7 +745,64 @@ function WebPlayer({ source }: { source: PlaybackSource }) {
             <span>Motore {engineKind}</span>
           </div>
         </div>
+        )}
       </div>
+
+      {episodePanelOpen && (
+        <div className="player-episode-panel">
+          <div className="player-episode-panel__header">
+            <h2>Episodi</h2>
+            <button data-focusable="true" aria-label="Chiudi elenco episodi" onClick={closeEpisodePanel}>
+              <Icon path={ICON.close} size={22} />
+            </button>
+          </div>
+          {seasonNumbers.length > 1 && (
+            <div className="season-tabs">
+              {seasonNumbers.map((season) => (
+                <button
+                  key={season}
+                  data-focusable="true"
+                  className={selectedSeason === season ? "season-tab season-tab--active" : "season-tab"}
+                  onClick={() => setSelectedSeason(season)}
+                >
+                  Stagione {season}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="episode-list player-episode-panel__list">
+            {episodesInSeason.map((episode) => {
+              const isCurrent = episode.id === source.contentId;
+              const percent = episode.progress?.durationSeconds
+                ? Math.max(0, Math.min(100, (episode.progress.positionSeconds / episode.progress.durationSeconds) * 100))
+                : 0;
+              return (
+                <div className={isCurrent ? "episode-row episode-row--current" : "episode-row"} key={episode.id}>
+                  <button
+                    className="episode-row__play-area"
+                    data-focusable="true"
+                    data-current={isCurrent || undefined}
+                    onClick={() => selectEpisode(episode)}
+                  >
+                    <span className="episode-row__number">{episode.episodeNumber}</span>
+                    <span className="episode-row__thumb">
+                      <Poster imagePath={episode.imagePath} alt={episode.title} />
+                    </span>
+                    <span className="episode-row__body">
+                      <strong>{episode.title}</strong>
+                      <small>S{pad2(episode.seasonNumber)} E{pad2(episode.episodeNumber)}</small>
+                      {percent > 0 && <span className="episode-row__progress"><span style={{ width: `${percent}%` }} /></span>}
+                    </span>
+                    <span className="episode-row__resume">
+                      {isCurrent ? "In riproduzione" : episode.progress && !episode.progress.completed ? "Riprendi" : "Riproduci"}
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

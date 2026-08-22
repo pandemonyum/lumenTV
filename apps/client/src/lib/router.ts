@@ -6,6 +6,8 @@ export type Route =
   | { name: "search" }
   | { name: "groups" }
   | { name: "group"; id: string }
+  | { name: "live" }
+  | { name: "live-category"; id: string }
   | { name: "item"; id: string }
   | { name: "player"; sourceType: "stream" | "episode"; id: string }
   | { name: "settings" };
@@ -18,6 +20,8 @@ function parseHash(hash: string): Route {
   if (parts[0] === "settings") return { name: "settings" };
   if (parts[0] === "groups" && !parts[1]) return { name: "groups" };
   if (parts[0] === "groups" && parts[1]) return { name: "group", id: decodeURIComponent(parts[1]) };
+  if (parts[0] === "live" && !parts[1]) return { name: "live" };
+  if (parts[0] === "live" && parts[1]) return { name: "live-category", id: decodeURIComponent(parts[1]) };
   if (parts[0] === "item" && parts[1]) return { name: "item", id: decodeURIComponent(parts[1]) };
   if (parts[0] === "player" && (parts[1] === "stream" || parts[1] === "episode") && parts[2]) {
     return { name: "player", sourceType: parts[1], id: decodeURIComponent(parts[2]) };
