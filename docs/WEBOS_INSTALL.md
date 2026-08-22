@@ -28,6 +28,10 @@ LUMENTV_PUBLIC_BASE_URL=http://192.168.1.50:8787
 LUMENTV_ALLOWED_ORIGINS=http://localhost:5173,http://192.168.1.50:8787,null
 ```
 
+Questo stesso valore vale anche per `npm run dev:web` (e compilato a build-time): per il test locale nel browser senza doverlo cambiare avanti e indietro, vedi `.env.development.example` nel README.
+
+Prima di installare sulla TV vera, la navigazione a telecomando (frecce, rotellina, Back) si puo gia provare nel browser locale aggiungendo `?platform=webos` all'URL di `npm run dev:web` (vedi README) — utile per isolare un bug di navigazione da uno di rete/dispositivo.
+
 Il backend e solo catalogo/metadati. Il video continua a essere aperto direttamente dalla TV verso il provider.
 
 ## Compatibilita webOS 4.x inclusa nella build

@@ -94,7 +94,11 @@ LUMENTV_ALLOWED_ORIGINS=http://localhost:5173,http://192.168.1.50:8787,capacitor
 VITE_API_BASE_URL=http://192.168.1.50:8787
 ```
 
-Aprire la porta TCP 8787 nella rete locale. `localhost` sul televisore o telefono indicherebbe quel dispositivo, non il computer.
+Aprire la porta TCP 8787 nella rete locale. `localhost` sul televisore o telefono indicherebbe quel dispositivo, non il computer. Se l'IP e assegnato via DHCP puo cambiare tra una sessione e l'altra: verificarlo con `ipconfig`/`ifconfig` prima di ogni build per TV o mobile.
+
+`VITE_API_BASE_URL` viene compilato dentro il client a build-time, quindi vale anche per `npm run dev:web`. Per testare in locale nel browser senza ereditare l'IP LAN, copiare `.env.development.example` in `.env.development`: ha priorita piu alta di `.env` per `npm run dev` e lo azzera, cosi il client torna a puntare da solo a `localhost:8787`.
+
+Per provare in locale anche la navigazione a telecomando LG (frecce, rotellina, tasto Back) senza reinstallare sulla TV, aprire il client in sviluppo con `?platform=webos` nell'URL (es. `http://localhost:5173/?platform=webos`): resta memorizzato finche non si visita `?platform=web`. Funziona solo in `npm run dev`, mai nelle build reali.
 
 ## Docker opzionale
 
